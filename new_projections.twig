@@ -1,0 +1,376 @@
+{% extends "layouts/layout.twig" %}
+
+{% block pageTitle %}
+    Weekly Projections
+{% endblock %}
+
+{% block content %}
+    
+    {% include 'projections/proj_style.twig' %}
+    <script type="text/javascript" src="{{ baseUrl }}assets/js/timeout-dialog.js"></script>
+    <style>
+        .ui-dialog-titlebar-close {
+            display: none;
+        }
+    </style>
+    
+    {% if dates.Week5 is defined %}
+        {% set columns = 7 %}
+    {% else %}
+        {% set columns = 6 %}
+    {% endif %}
+    
+    {% set mnth = info.mthNum %}
+    {% set year = info.year %}
+    {% if mnth == 1%}
+        {% set prevmnth = 12 %}
+        {% set prevyear = year - 1 %}
+    {% else %}
+        {% set prevmnth = mnth - 1 %}
+        {% set prevyear = year%}
+    {% endif %}
+    {% if mnth == 12%}
+        {% set nextmnth = 1 %}
+        {% set nextyear = year + 1 %}
+    {% else %}
+        {% set nextmnth = mnth + 1 %}
+        {% set nextyear = year %}
+    {% endif %}
+        
+    <a href="ProjectionsMenu" > <<< Return to Projections Menu </a>
+    
+    <div id="exporter" style="clear:both;">
+        <div style="float:right;"> 
+            <div class="subButton" onClick="window.location.assign('projections/WeeklySummary?download=excel&type=weekly&month={{ info.mthNum  }}&year={{ info.year }}');">
+                <a href="projections/WeeklySummary?download=excel&type=weekly&&month={{ info.mthNum  }}&year={{ info.year }}"> Export to Excel </a> 
+            </div>
+            <div class="subButton" onClick="window.location.assign('projections/WeeklySummary?print=true&month={{ info.mthNum  }}&year={{ info.year }}');">
+                <a href="projections/WeeklySummary?print=true&month={{ info.mthNum  }}&year={{ info.year }}"> Print Page </a> 
+            </div>
+        </div>
+    </div>
+    
+    <div id="titleBar" class="titleBox titleBanner">
+        <div style="float:left;" class="subButton">
+            <a href="projections/WeeklySummary?month={{ prevmnth }}&year={{ prevyear }}"> << Previous </a>
+        </div> 
+        <div style="float:left;margin: 10px 30px;">
+        {{ info.Month }} {{ info.year }} Projection Report for {{ info.User }} <br />
+        {% if info.mthNum == info.curMth %}
+            Week Ending {{ info.weekEnd }}
+        {% endif %}
+        </div> 
+        <div style="float:left;" class="subButton">
+            <a href="projections/WeeklySummary?month={{ nextmnth }}&year={{ nextyear }}"> Next >> </a> 
+        </div>
+    </div>
+    
+    <table style="border: solid 3px black;" class="projectionsTable">
+        <tr>
+            <td colspan="2" class="separator">
+                {% if (info.mthNum == info.curMth or info.mthNum == info.curMth+1) %}
+                <button type="button" class="btn btn-info btn-lg" id="openModal">
+                    <span>Add New Project</span>
+                </button>
+                {% else %}
+                    &nbsp;
+                {% endif %}
+            </td>
+            <td colspan="3" class="forecast titleCell">
+                {{ info.Month }} Revenue Forecast
+            </td>
+            <td class="toDate titleCell">
+                {{ info.Month }} to Date
+            </td>
+            <td class="variance titleCell separator">
+                Variance
+            </td>
+            <td colspan="3" class="forecast titleCell">
+                {{ info.Month }} Expense Forecast
+            </td>
+            <td class="toDate titleCell">
+                {{ info.Month }} to Date
+            </td>
+            <td class="variance titleCell separator">
+                Variance
+            </td>
+            <td class="separator">
+                &nbsp;
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2" class="customerTitle separator">
+                Customer/LOB
+            </td>
+            <td class="forecast">
+                Initial
+            </td>
+            <td class="forecast">
+                Changes
+            </td>
+            <td class="forecast">
+                Final
+            </td>
+            <td class="toDate">
+                Billed
+            </td>
+            <td class="variance separator">
+                Need to Bill
+            </td>
+            <td class="forecast">
+                Initial
+            </td>
+            <td class="forecast">
+                Changes
+            </td>
+            <td class="forecast">
+                Final
+            </td>
+            <td class="toDate">
+                Billed
+            </td>
+            <td class="variance separator">
+                Need to Bill
+            </td>
+            <td class="separator">
+                &nbsp;
+            </td>            
+        </tr>
+        <tr>
+            <td class="customerLine">
+                Customer
+            </td>
+            <td class="customerLine separator">
+                Project
+            </td>
+            <td class="forecast">
+                Rev Proj
+            </td>
+            <td class="forecast">
+                Rev Proj Change
+            </td>
+            <td class="forecast">
+                Adjust. Rev Proj
+            </td>
+            <td class="toDate">
+                Rev Actual
+            </td>
+            <td class="variance separator">
+                Rev Variance
+            </td>
+            <td class="forecast">
+                Exp Proj
+            </td>
+            <td class="forecast">
+                Exp Proj Change
+            </td>
+            <td class="forecast">
+                Adjust. Exp Proj
+            </td>
+            <td class="toDate">
+                Exp Actual
+            </td>
+            <td class="variance separator">
+                Exp Variance
+            </td>
+            <td class="separator">
+                Margin
+            </td> 
+        </tr>
+        <form name="ui_form" method="POST" action="" id="ui_form" enctype="multipart/form-data">
+            
+        <input type="hidden" name="divId" id="divId" value="{{ info.divId }}" />
+        <input type="hidden" name="weekNum" id="weekNum" value="{{ info.weekNum }}" />
+        
+        {# AR Variables #}
+        {% set ARProjTot = 0 %}
+        {% set ARChangesTotal = 0 %}
+        {% set ARChngFinal = 0 %}
+        {% set ARActTot = 0 %}
+        
+        {# AP Variables #}
+        {% set APProjTot = 0 %}
+        {% set APChangesTotal = 0 %}
+        {% set APChngFinal = 0 %}
+        {% set APActTot = 0 %}
+        
+        {% for line in projections %}
+            {# AR Totals #}
+            {% set ARProjTot = ARProjTot + line.ARForecast %}
+            {% set ARChangesTotal = ARChangesTotal + line.RevChanges %}
+            {% set ARChngFinal = ARChangesTotal %}
+            {% set ARActTot = ARActTot + line.ARActual %}
+            
+            {# AP Totals #}
+            {% set APProjTot = APProjTot + line.APForecast %}
+            {% set APChangesTotal = APChangesTotal + line.ExpChanges %} 
+            {% set APChngFinal = APChangesTotal %}
+            {% set APActTot = APActTot + line.APActual %}
+            {# Time to Loop #}
+            {% include 'projections/_new_projection_line.twig' %}
+        {% endfor %}
+        
+        {% if info.mthNum == info.curMth %}
+            <div id="hardfooter">
+                <div style="float:left;padding:15px 10px;"> &nbsp; </div>
+                <div class="subButton3" id="submitform">
+                    <span>Submit</span>
+                </div>
+            </div>
+        {% endif %}
+        
+        </form>
+        <tr>
+            <td colspan="2" class="separator" style="text-align:right;border-top:solid 3px black;">
+                <b>TOTALS :</b>
+            </td>
+            <td class="totalCell">
+                ${{ ARProjTot|number_format(2, '.', ',') }}
+            </td>
+            <td class="totalCell">
+                ${{ ARChangesTotal|number_format(2, '.', ',') }}
+            </td>
+            <td class="totalCell">
+                ${{ ARChngFinal|number_format(2, '.', ',') }}
+            </td>
+            <td class="totalCell flyover">
+                ${{ ARActTot|number_format(2, '.', ',') }}
+                {% include 'projections/_actuals_flyover.twig' %}
+            </td>
+            <td class="totalCell separator">
+                ${{ (ARChngFinal - ARActTot)|number_format(2, '.', ',') }}
+            </td>
+            <td class="totalCell">
+                ${{ APProjTot|number_format(2, '.', ',') }}
+            </td>
+            <td class="totalCell">
+                ${{ APChangesTotal|number_format(2, '.', ',') }}
+            </td>
+            <td class="totalCell">
+                ${{ APChngFinal|number_format(2, '.', ',') }}
+            </td>
+            <td class="totalCell flyover">
+                ${{ APActTot|number_format(2, '.', ',') }}
+                {% include 'projections/_actuals_flyover.twig' %}
+            </td>
+            <td class="totalCell separator">
+                ${{ (APChngFinal - APActTot)|number_format(2, '.', ',') }}
+            </td>
+            <td class="totalCell separator">
+                {{ (((ARChngFinal - APChngFinal)/ARChngFinal)*100)|number_format(2, '.', ',') }}%
+            </td>
+            
+        </tr>
+    </table>
+   
+  <!-- Modal -->
+  <div class="modal fade" id="projModal" role="dialog">
+    <div class="modal-dialog">
+        <!-- Modal content-->
+        <div class="modal-content">
+            <div class="modal-header">
+              <button type="button" class="close" data-dismiss="modal">&times;</button>
+              <h4 class="modal-title">Add New Projection</h4>
+            </div>
+            <form name="modal_form" method="POST" action="" id="modal_form" enctype="multipart/form-data">
+                <div style="text-align: center;">
+                    <label for="newProj"><span>Add New Projection:</span>&nbsp;&nbsp;</label> 
+                    <select id="newProj" name="newProj" >
+                        <option value="">Select Project to Add...</option>
+                    {% for nf in noForecast %}
+                        <option value="{{ nf.combined }}">{{ nf.Project }}</option>
+                    {% endfor %}
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal" id="addProj">OK</button>
+                </div>
+            </form>
+        </div>       
+    </div>
+  </div>                    
+            
+<script>
+    $.timeoutDialog({
+        timeout: 1200, 
+        countdown: 300, 
+        keep_alive_url: '{{ baseUrl }}',        
+        logout_redirect_url: '{{ baseUrl }}', 
+        restart_on_yes: true,
+        dialog_width: 500,
+     });
+    
+    $("#openModal").click(function(){
+        $("#projModal").modal();
+    });
+    
+    $('.subButton3').click(function () {
+        var idVals = $('input[name^="id"]').serializeArray();
+        var revChange = $('input[name^="revC"]').serializeArray();
+        var expChange = $('input[name^="expC"]').serializeArray();
+        
+        $.ajax({
+            url: "projections/WeeklySummary",
+            data: {
+                LineIds: idVals,
+                DivId: $('#divId').val(),
+                RevChange: revChange,
+                ExpChange: expChange,  
+                weekNum: $('#weekNum').val(),
+            },
+            type: "POST",
+            dataType: "html",
+            success: function(data) {
+               alert("Projections for {{ info.weekEnd }} saved.");
+               window.location.replace('projections/WeeklySummary?month={{ info.mthNum }}&year={{ info.year }}');
+            },
+            error: function(xhr, status) {
+                alert("Sorry, there was a problem!\n"+xhr+"\n"+status);
+            }
+        });
+    });
+    
+    $('#addProj').click(function () {
+        var projVal = $('#newProj').val().split('|');
+    
+        if(projVal[2]){
+            $.ajax({
+                url: "projections/DLProjection",
+                data: {
+                    DivisionLeadId: {{ info.divId }},
+                    WeekEnding: '{{ info.weekEnd }}',
+                    dlName: '{{ info.User }}',
+                    Customer: projVal[0],
+                    Project: projVal[1],
+                    Code: projVal[2],
+                    Revenues: 0,
+                    Expenses: 0,
+                    month: {{ info.mthNum }},
+                    year: {{ info.year }},
+                    type: 'addProj',
+                },
+                type: "POST",
+                dataType: "html",
+                success: function (data) {
+                    alert("Added New Projection for "+projVal[1]);
+                    window.location.replace('{{ baseUrl }}projections/WeeklySummary?month={{ info.mthNum }}&year={{ info.year }}');
+                },
+                error: function (xhr, status) {
+                    alert("Sorry, there was a problem!");
+                },
+            });
+        } else {
+            alert("Please select a Project for insertion.\n");
+        }
+    });
+    
+    function calculateRow(lineVal){
+        var rev = parseInt($('input[name="revChanges['+lineVal+']"]').val());
+        var exp = parseInt($('input[name="expChanges['+lineVal+']"]').val());
+        
+        var margin = ((rev-exp)/rev)*100;
+        if(isNaN(margin)){ margin = 0; };
+        $('input[name="Margin['+lineVal+']"]').val(margin.toFixed(2));
+    };
+</script>    
+{% endblock %}
